@@ -30,3 +30,14 @@
 *.exe
 *.out
 *.app
+
+# Floders
+.vs/
+x64/
+Data/
+DataSet/
+
+# Configure files
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
