@@ -3,67 +3,52 @@
 osg::ref_ptr<osg::Group> createBody(osg::Vec3 offset)
 {
 	// blue color
-	float bonew = 0.3f;
-	float ballw = bonew + 0.4;
-	osg::Vec4 boneColor(85.0f / 255, 146.0f / 255, 237.0f / 255, 1.0f);
-	osg::Vec4 jointColor(150.0f / 255, 210.0f / 255, 255.0f / 255, 1.0f);
+	float bone_width = 0.3f;
+	float ball_diameter = bone_width + 0.4;
+	osg::Vec4 bone_color(85.0f / 255, 146.0f / 255, 237.0f / 255, 1.0f);
+	osg::Vec4 joint_color(150.0f / 255, 210.0f / 255, 255.0f / 255, 1.0f);
 	osg::ref_ptr<osg::Group> group = new osg::Group;
 
-	osg::Vec3 startPt = osg::Vec3(0.0f, 0.0f, 0.0f);
+	osg::Vec3 start_point = osg::Vec3(0.0f, 0.0f, 0.0f);
 	osg::Vec3 t = offset;
 	float len = t.length();
 	t /= 2;
 
-	osg::Cylinder *unitCylinder = new osg::Cylinder(osg::Vec3(0, 0, 0), bonew, len);
-	osg::ShapeDrawable* unitCylinderDrawable = new osg::ShapeDrawable(unitCylinder);
+	osg::Cylinder *unit_cylinder = new osg::Cylinder(osg::Vec3(0, 0, 0), bone_width, len);
+	osg::ShapeDrawable* unit_cylinder_drawable = new osg::ShapeDrawable(unit_cylinder);
 
-	osg::Sphere* startSphere = new osg::Sphere(startPt, ballw);
-	osg::Sphere* endSphere = new osg::Sphere(offset, ballw);
-	osg::ShapeDrawable* startSphereDrawable = new osg::ShapeDrawable(startSphere);
-	osg::ShapeDrawable* endSphereDrawable = new osg::ShapeDrawable(endSphere);
+	osg::Sphere* start_sphere = new osg::Sphere(start_point, ball_diameter);
+	osg::Sphere* end_sphere = new osg::Sphere(offset, ball_diameter);
+	osg::ShapeDrawable* start_sphere_drawable = new osg::ShapeDrawable(start_sphere);
+	osg::ShapeDrawable* end_sphere_drawable = new osg::ShapeDrawable(end_sphere);
 
-	unitCylinderDrawable->setColor(boneColor);
-	startSphereDrawable->setColor(jointColor);
-	endSphereDrawable->setColor(jointColor);
+	unit_cylinder_drawable->setColor(bone_color);
+	start_sphere_drawable->setColor(joint_color);
+	end_sphere_drawable->setColor(joint_color);
 
 	osg::Geode* geode1 = new osg::Geode;
-	osg::Geode* geode2 = new osg::Geode;   // geode2是骨头两端的球体，是不需要做tranform变换的
+	osg::Geode* geode2 = new osg::Geode;
 
 	osg::MatrixTransform* transform = new osg::MatrixTransform;
 	transform->addChild(geode1);
 
-	osg::Vec3 axis = osg::Vec3(0, 0, 1) ^ t;//旋转轴
+	// the axis of rotation
+	osg::Vec3 axis = osg::Vec3(0, 0, 1) ^ t;
 
-	float theta = acos(t.z() / t.length());//旋转角度
+	// the angle of rotationi
+	float theta = acos(t.z() / t.length());
 
-	//创建变化实例
 	osg::Matrixd mat1, mat2;
 	mat1.makeRotate(osg::Quat(theta, axis));
 	mat2.makeTranslate(t);
 	transform->setMatrix(mat1*mat2);
 
-	geode1->addDrawable(unitCylinderDrawable);
-	geode2->addDrawable(startSphereDrawable);
-	geode2->addDrawable(endSphereDrawable);
+	geode1->addDrawable(unit_cylinder_drawable);
+	geode2->addDrawable(start_sphere_drawable);
+	geode2->addDrawable(end_sphere_drawable);
 	group->addChild(transform);
 	group->addChild(geode2);
 	return group;
-}
-
-osg::ref_ptr<osg::Geode> createHead(osg::Vec3 offset)
-{
-	osg::Vec4 jointColor(255.0f / 255, 255.0f / 255, 255.0f / 255, 1.0f);
-	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	osg::Vec3 centerPosOfHead = (offset - osg::Vec3(0.0f, 0.0f, 0.0f)) / 2;
-
-	osg::Sphere* headSphere = new osg::Sphere(centerPosOfHead, 1.35);   // the param sets the radius
-	osg::ShapeDrawable* headSphereDrawable = new osg::ShapeDrawable(headSphere);
-
-	headSphereDrawable->setColor(jointColor);
-
-	geode->addDrawable(headSphereDrawable);
-
-	return geode;
 }
 
 struct AnimationManagerFinder : public osg::NodeVisitor
@@ -83,7 +68,6 @@ struct AnimationManagerFinder : public osg::NodeVisitor
 		traverse(node);
 	}
 };
-
 
 struct AddHelperBone : public osg::NodeVisitor
 {
@@ -119,6 +103,6 @@ void OSGSkeleton::createSkeleton(string str)
 		skeleton->setUpdateCallback(finder._am.get());
 		AnimtkViewerModelController::setModel(finder._am.get());
 	}
-	AddHelperBone addHelper;
-	skeleton->getChild(0)->accept(addHelper);
+	AddHelperBone add_helper;
+	skeleton->getChild(0)->accept(add_helper);
 }

@@ -1,4 +1,4 @@
-#include "PoseMotionViewer.h"
+﻿#include "PoseMotionViewer.h"
 
 #include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>
@@ -16,43 +16,47 @@
 const int ReceivesShadowTraversalMask = 0x1;
 const int CastsShadowTraversalMask = 0x2;
 
-PoseMotionViewer::PoseMotionViewer()
+PoseMotionViewer::PoseMotionViewer(int pos_x, int pos_y, int width, int height)
 {
 	m_root_node = new osg::Group;
 	m_viewer = new osgViewer::Viewer();
 
 	m_ground = new OSGGround;
-	osg::ref_ptr<osg::MatrixTransform> ground_mat = new osg::MatrixTransform;
+	m_skeleton = new OSGSkeleton;
+
+	// Visualization test for skeleton and ground.
+	/*osg::ref_ptr<osg::MatrixTransform> ground_mat = new osg::MatrixTransform;
 	osg::Geode* groundGeode = new osg::Geode;
 	groundGeode->addDrawable(m_ground->getRootNode());
 	ground_mat->addChild(groundGeode);
 
-	//Create Skeleton
-	m_skeleton = new OSGSkeleton;
 	m_skeleton->createSkeleton("Data/MotionData/01/01_01.bvh");
-
 	osg::ref_ptr<osg::MatrixTransform> skeleton_mat = new osg::MatrixTransform;
 	skeleton_mat->addChild(m_skeleton->skeleton);
 	skeleton_mat->setMatrix(osg::Matrix::rotate(osg::inDegrees(90.0f), 1.0f, 0.0f, 0.0f));
 
-	m_root_node->addChild(createMirroredScene(skeleton_mat.get()));
-	// m_root_node->addChild(m_ground->getRootNode());
+	m_root_node->addChild(skeleton_mat);
+	m_root_node->addChild(ground_mat);*/
+
+	m_root_node->addChild(createScene());
 
 	osgUtil::Optimizer optimizer;
 	optimizer.optimize(m_root_node.get());
 
-	m_viewer->setUpViewInWindow(120, 120, 1024, 1024);
+	m_viewer->setUpViewInWindow(pos_x, pos_y, width, height);
 	m_viewer->setSceneData(m_root_node.get());
+	m_viewer->getCamera()->setViewport(new osg::Viewport(0, 0, width, height));
+	m_viewer->getCamera()->setClearColor(osg::Vec4(255.f / 255.f, 255.f / 255.f, 255.f / 255.f, 0.5f));
+	m_viewer->getCamera()->setProjectionMatrixAsPerspective(45.0f, static_cast<double>(width) / static_cast<double>(height), 1.0f, 100.0f);
 	m_viewer->setCameraManipulator(new osgGA::TrackballManipulator);
 
 	// Anti-aliasing
-	osg::DisplaySettings* ds = osg::DisplaySettings::instance();
-	ds->setNumMultiSamples(1);
-	m_viewer->setDisplaySettings(ds);
+	osg::DisplaySettings* disp_setting = osg::DisplaySettings::instance();
+	disp_setting->setNumMultiSamples(10);
+	m_viewer->setDisplaySettings(disp_setting);
 
-	AnimtkViewerModelController& mc = AnimtkViewerModelController::instance();
-	// mc.stop();
-	mc.play();
+	AnimtkViewerModelController& model_controller = AnimtkViewerModelController::instance();
+	model_controller.play();
 }
 
 PoseMotionViewer::~PoseMotionViewer()
@@ -60,107 +64,34 @@ PoseMotionViewer::~PoseMotionViewer()
 
 }
 
-osg::Node* PoseMotionViewer::createMirroredScene(osg::Node* model)
+osg::Node* PoseMotionViewer::createScene()
 {
-	osg::MatrixTransform*  mir_node = new osg::MatrixTransform;
+	osg::MatrixTransform*  scene_node = new osg::MatrixTransform;
 
 	// make sure that the global color mask exists.
-	osg::ColorMask* rootColorMask = new osg::ColorMask;
-	rootColorMask->setMask(true, true, true, true);
+	osg::ColorMask* root_color_mask = new osg::ColorMask;
+	root_color_mask->setMask(true, true, true, true);
 
 	// set up depth to be inherited by the rest of the scene unless
 	// overrideen. this is overridden in bin 3.
-	osg::Depth* rootDepth = new osg::Depth;
-	rootDepth->setFunction(osg::Depth::LESS);
-	rootDepth->setRange(0.0, 1.0);
+	 osg::Depth* root_depth = new osg::Depth;
+	 root_depth->setFunction(osg::Depth::LESS);
+	 root_depth->setRange(0.0, 1.0);
 
-	osg::StateSet* rootStateSet = new osg::StateSet();
-	rootStateSet->setAttribute(rootColorMask);
-	rootStateSet->setAttribute(rootDepth);
+	osg::StateSet* root_state_set = new osg::StateSet();
+	root_state_set->setAttribute(root_color_mask);
+	root_state_set->setAttribute(root_depth);
 
-	mir_node->setStateSet(rootStateSet);
+	scene_node->setStateSet(root_state_set);
 
-	osg::Drawable* mirror = m_ground->getRootNode();
+	osg::Drawable* mirror_ground = m_ground->getRootNode();
 
-	// bin1  - set up the stencil values and depth for mirror.
-	{
-		// set up the stencil ops so that the stencil buffer get set at
-		// the mirror plane
-		osg::Stencil* stencil = new osg::Stencil;
-		stencil->setFunction(osg::Stencil::ALWAYS, 1, ~0u);
-		stencil->setOperation(osg::Stencil::KEEP, osg::Stencil::KEEP, osg::Stencil::REPLACE);
+	m_skeleton->createSkeleton("Data/MotionData/01/01_01.bvh");
+	osg::ref_ptr<osg::MatrixTransform> human_model = new osg::MatrixTransform;
+	human_model->addChild(m_skeleton->skeleton);
+	human_model->setMatrix(osg::Matrix::rotate(osg::inDegrees(90.0f), 1.0f, 0.0f, 0.0f));
 
-		// switch off the writing to the color bit planes.
-		osg::ColorMask* colorMask = new osg::ColorMask;
-		colorMask->setMask(false, false, false, false);
-		// colorMask->setMask(true, true, true, true);
-
-		osg::StateSet* statesetBin1 = new osg::StateSet();
-		statesetBin1->setRenderBinDetails(1, "RenderBin");
-		statesetBin1->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-		statesetBin1->setAttributeAndModes(stencil, osg::StateAttribute::ON);
-		statesetBin1->setAttribute(colorMask);
-
-		// set up the mirror geode.
-		osg::Geode* geode = new osg::Geode;
-		geode->addDrawable(mirror);
-		geode->setStateSet(statesetBin1);
-		mir_node->addChild(geode);
-	}
-
-	// bin 2 - draw scene without mirror or reflection, unset
-	// stencil values where scene is infront of mirror and hence
-	// occludes the mirror.
-	{
-		osg::Stencil* stencil = new osg::Stencil;
-		stencil->setFunction(osg::Stencil::ALWAYS, 0, ~0u);
-		stencil->setOperation(osg::Stencil::KEEP, osg::Stencil::KEEP, osg::Stencil::REPLACE);
-
-		osg::StateSet* statesetBin2 = new osg::StateSet();
-		statesetBin2->setRenderBinDetails(2, "RenderBin");
-		statesetBin2->setAttributeAndModes(stencil, osg::StateAttribute::ON);
-
-		osg::Group* groupBin2 = new osg::Group();
-		groupBin2->setStateSet(statesetBin2);
-		groupBin2->addChild(model);
-
-		mir_node->addChild(groupBin2);
-	}
-
-	// bin3  - set up the depth to the furthest depth value
-	{
-
-		// set up the stencil ops so that only operator on this mirrors stencil value.
-		osg::Stencil* stencil = new osg::Stencil;
-		stencil->setFunction(osg::Stencil::EQUAL, 1, ~0u);
-		stencil->setOperation(osg::Stencil::KEEP, osg::Stencil::KEEP, osg::Stencil::KEEP);
-
-		// switch off the writing to the color bit planes.
-		osg::ColorMask* colorMask = new osg::ColorMask;
-		colorMask->setMask(false, false, false, false);
-
-		// set up depth so all writing to depth goes to maximum depth.
-		osg::Depth* depth = new osg::Depth;
-		depth->setFunction(osg::Depth::ALWAYS);
-		depth->setRange(1.0, 1.0);
-
-		osg::StateSet* statesetBin3 = new osg::StateSet();
-		statesetBin3->setRenderBinDetails(3, "RenderBin");
-		statesetBin3->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-		statesetBin3->setAttributeAndModes(stencil, osg::StateAttribute::ON);
-		statesetBin3->setAttribute(colorMask);
-		statesetBin3->setAttribute(depth);
-
-		// set up the mirror geode.
-		osg::Geode* geode = new osg::Geode;
-		geode->addDrawable(mirror);
-		geode->setStateSet(statesetBin3);
-
-		mir_node->addChild(geode);
-
-	}
-
-	// bin4  - draw the reflection.
+	// bin1  - draw the reflection.
 	{
 		osg::ClipPlane* clipplane = new osg::ClipPlane;
 		clipplane->setClipPlane(0.0, 0.0, -1.0, 0.0f);
@@ -169,9 +100,8 @@ osg::Node* PoseMotionViewer::createMirroredScene(osg::Node* model)
 		osg::ClipNode* clipNode = new osg::ClipNode;
 		clipNode->addClipPlane(clipplane);
 
-
 		osg::StateSet* dstate = clipNode->getOrCreateStateSet();
-		dstate->setRenderBinDetails(4, "RenderBin");
+		dstate->setRenderBinDetails(1, "RenderBin");
 		dstate->setMode(GL_CULL_FACE, osg::StateAttribute::OVERRIDE | osg::StateAttribute::OFF);
 
 		osg::Stencil* stencil = new osg::Stencil;
@@ -185,43 +115,30 @@ osg::Node* PoseMotionViewer::createMirroredScene(osg::Node* model)
 			osg::Matrix::scale(1.0f, 1.0f, -1.0f)*
 			osg::Matrix::translate(0.0f, 0.0f, 0.0f));
 
-		reverseMatrix->addChild(model);
+		reverseMatrix->addChild(human_model);
 
 		clipNode->addChild(reverseMatrix);
 
-		mir_node->addChild(clipNode);
+		scene_node->addChild(clipNode);
 	}
 
 	osg::StateSet* stateset = m_root_node->getOrCreateStateSet();
 
 	// Light
 	float light_hight = 100.0f;
-	float light_hight_offset = 10.0f;
-	float light_x = 100.0f;
-	float light_y = 100.0f;
+	float light_x = -100.0f;
+	float light_y = -100.0f;
 	osg::Light* light_main = new osg::Light;
 	light_main->setLightNum(0);
 	light_main->setPosition(osg::Vec4(light_x, light_y, light_hight, 1.0f));
 	light_main->setDirection(osg::Vec3(0.f, 0.f, 0.f));
+	light_main->setAmbient(osg::Vec4(0.01f, 0.01f, 0.01f, 1.0f));
+	light_main->setDiffuse(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	osg::LightSource* light_source_main = new osg::LightSource;
 	light_source_main->setLight(light_main);
 	light_source_main->setLocalStateSetModes(osg::StateAttribute::ON);
 	stateset->setMode(GL_LIGHT0, osg::StateAttribute::ON);
 	light_source_main->setStateSetModes(*stateset, osg::StateAttribute::ON);
-
-	osg::Light* light1 = new osg::Light;
-	light1->setLightNum(1);
-	light1->setPosition(osg::Vec4(-light_x, -light_y, light_hight + light_hight_offset, 1.0f));
-	light1->setDirection(osg::Vec3(0.f, 0.f, 0.f));
-	osg::LightSource* light_source_1 = new osg::LightSource;
-	light_source_1->setLight(light1);
-	light_source_1->setLocalStateSetModes(osg::StateAttribute::ON);
-	stateset = m_root_node->getOrCreateStateSet();
-	stateset->setMode(GL_LIGHT1, osg::StateAttribute::ON);
-	light_source_1->setStateSetModes(*stateset, osg::StateAttribute::ON);
-
-	mir_node->addChild(light_source_main);
-	mir_node->addChild(light_source_1);
 
 	//Shadow
 	osg::ref_ptr<osgShadow::ShadowedScene> shadowedScene = new osgShadow::ShadowedScene();
@@ -229,44 +146,38 @@ osg::Node* PoseMotionViewer::createMirroredScene(osg::Node* model)
 	shadowedScene->setCastsShadowTraversalMask(CastsShadowTraversalMask);
 	osg::ref_ptr<osgShadow::ShadowMap> sm = new osgShadow::ShadowMap;
 	osg::ref_ptr<osgShadow::ShadowTexture> st = new osgShadow::ShadowTexture();
-	shadowedScene->setShadowTechnique(st.get());
+	shadowedScene->setShadowTechnique(sm.get());
 
-	// bin5  - draw the textured mirror and blend it with the reflection.
+	// bin2  - draw the textured mirror and blend it with the reflection.
 	{
-		// set up depth so all writing to depth goes to maximum depth.
-		osg::Depth* depth = new osg::Depth;
-		depth->setFunction(osg::Depth::ALWAYS);
-
 		osg::Stencil* stencil = new osg::Stencil;
 		stencil->setFunction(osg::Stencil::EQUAL, 1, ~0u);
 		stencil->setOperation(osg::Stencil::KEEP, osg::Stencil::KEEP, osg::Stencil::ZERO);
 
 		// set up additive blending.
 		osg::BlendFunc* trans = new osg::BlendFunc;
-		trans->setFunction(osg::BlendFunc::ONE, osg::BlendFunc::ONE);
+		trans->setFunction(osg::BlendFunc::SRC_COLOR, osg::BlendFunc::SRC_COLOR);
 
 		osg::StateSet* statesetBin5 = new osg::StateSet();
 
-		statesetBin5->setRenderBinDetails(5, "RenderBin");
+		statesetBin5->setRenderBinDetails(2, "RenderBin");
 		statesetBin5->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 		statesetBin5->setAttributeAndModes(stencil, osg::StateAttribute::ON);
 		statesetBin5->setAttributeAndModes(trans, osg::StateAttribute::ON);
-		statesetBin5->setAttribute(depth);
 
 		// set up the mirror geode.
 		osg::Geode* geode = new osg::Geode;
-		geode->addDrawable(mirror);
+		geode->addDrawable(mirror_ground);
 		geode->setStateSet(statesetBin5);
-
-		 model->setNodeMask(CastsShadowTraversalMask);
-		 geode->setNodeMask(ReceivesShadowTraversalMask);
-		 shadowedScene->addChild(light_source_main);
-		 shadowedScene->addChild(light_source_1);
-		 shadowedScene->addChild(model);
-		 shadowedScene->addChild(geode);
+		
+		human_model->setNodeMask(CastsShadowTraversalMask);
+		geode->setNodeMask(ReceivesShadowTraversalMask);
+		shadowedScene->addChild(light_source_main);
+		shadowedScene->addChild(human_model);
+		shadowedScene->addChild(geode);
 		 
-		 mir_node->addChild(shadowedScene);
+		scene_node->addChild(shadowedScene);
 	}
 
-	return mir_node;
+	return scene_node;
 }

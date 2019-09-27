@@ -21,10 +21,10 @@
 class PoseMotionViewer
 {
 public:
-	PoseMotionViewer();
+	PoseMotionViewer(int pos_x, int pos_y, int width, int height);
 	~PoseMotionViewer();
 
-	osg::ref_ptr<osgViewer::Viewer> m_viewer; // = new osgViewer::Viewer();
+	osg::ref_ptr<osgViewer::Viewer> m_viewer;
 
 private:
 	OSGGround* m_ground;
@@ -32,5 +32,5 @@ private:
 
 	osg::ref_ptr<osg::Group> m_root_node;
 
-	osg::Node* createMirroredScene(osg::Node* model);
+	osg::Node* createScene();
 };

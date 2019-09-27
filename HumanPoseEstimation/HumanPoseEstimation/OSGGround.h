@@ -16,5 +16,5 @@ public:
 	osg::ref_ptr<osg::Geometry> getRootNode();
 
 private:
-	osg::ref_ptr<osg::Geometry> rootNode;
+	osg::ref_ptr<osg::Geometry> root_node;
 };
